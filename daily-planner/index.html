@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+<meta charset="UTF-8">
+<title>برنامه ماهانه حامد</title>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  body {
+    font-family: 'Vazirmatn', sans-serif;
+    background: linear-gradient(120deg,#fdfbfb,#ebedee);
+    padding: 20px;
+    direction: rtl;
+  }
+  h1 { text-align:center; color:#333; margin-bottom:20px; font-size:32px; }
+  #monthSelect { display:block; margin:0 auto 20px auto; font-size:18px; padding:5px 10px; }
+  .calendar { display:grid; grid-template-columns: repeat(3, 1fr); gap:15px; margin-bottom:30px; }
+  .day-box {
+    background:#fff;
+    border-radius:12px;
+    box-shadow:0 6px 15px rgba(0,0,0,0.1);
+    padding:15px;
+    min-height:180px;
+    position:relative;
+    transition:0.3s;
+  }
+  .day-box:hover { transform:translateY(-3px); box-shadow:0 10px 20px rgba(0,0,0,0.15); }
+  .day-title { font-weight:700; font-size:26px; margin-bottom:10px; color:#ff5722; }
+  ul { list-style:none; padding:0; margin:0; }
+  li {
+    padding:10px 10px;
+    margin:8px 0;
+    background:#f0f0f0;
+    border-radius:10px;
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    font-size:18px;
+  }
+  li.done { text-decoration: line-through; color:#555; }
+  .details { font-size:16px; color:#555; margin-top:5px; }
+  .checkbox-wrapper { margin-left:10px; margin-top:2px; align-self:flex-start; }
+  input[type="checkbox"] { transform: scale(1.3); cursor:pointer; }
+  input.edit-input { width:100%; font-family: 'Vazirmatn', sans-serif; font-size:16px; padding:2px 5px; }
+  textarea.notes { width:100%; font-size:16px; margin-top:10px; padding:5px; border-radius:8px; border:1px solid #ccc; resize:none; font-family:'Vazirmatn'; }
+  button { display:block; margin:20px auto; padding:12px 25px; font-size:18px; border:none; border-radius:10px; background:#ff5722; color:white; cursor:pointer; box-shadow:0 5px 15px rgba(0,0,0,0.2); transition:0.3s; }
+  button:hover { background:#e64a19; transform:translateY(-2px); }
+</style>
+</head>
+<body>
+
+<h1>برنامه ماهانه حامد</h1>
+<select id="monthSelect" onchange="renderCalendar()">
+  <option value="0">فروردین</option>
+  <option value="1">اردیبهشت</option>
+  <option value="2">خرداد</option>
+  <option value="3">تیر</option>
+  <option value="4">مرداد</option>
+  <option value="5">شهریور</option>
+  <option value="6">مهر</option>
+  <option value="7">آبان</option>
+  <option value="8">آذر</option>
+  <option value="9">دی</option>
+  <option value="10">بهمن</option>
+  <option value="11">اسفند</option>
+</select>
+
+<div class="calendar" id="calendar"></div>
+
+<button onclick="downloadExcel()">دانلود گزارش ماهانه Excel</button>
+
+<script>
+const totalDays = 30; // برای سادگی همه ماه‌ها 30 روز فرض شد
+
+function renderCalendar() {
+  const calendar = document.getElementById('calendar');
+  calendar.innerHTML = '';
+  const month = document.getElementById('monthSelect').value;
+
+  for(let i=1;i<=totalDays;i++){
+    const dayBox = document.createElement('div');
+    dayBox.className = 'day-box';
+    
+    const title = document.createElement('div');
+    title.className = 'day-title';
+    title.textContent = `روز ${i}`;
+    dayBox.appendChild(title);
+
+    const taskList = document.createElement('ul');
+    const li = document.createElement('li');
+    li.dataset.type = "مثال";
+    li.innerHTML = `<span class="task-text" ondblclick="editTask(this)">تسک نمونه</span>
+                    <div class="details" ondblclick="editTask(this)">جزئیات نمونه</div>
+                    <div class="checkbox-wrapper"><input type="checkbox"></div>`;
+    taskList.appendChild(li);
+    dayBox.appendChild(taskList);
+
+    const notes = document.createElement('textarea');
+    notes.className = 'notes';
+    notes.placeholder = 'توضیحات دلخواه خود را اینجا بنویسید...';
+
+    // بارگذاری توضیحات از localStorage
+    const notesKey = `${month}_day${i}_notes`;
+    if(localStorage.getItem(notesKey)){
+      notes.value = localStorage.getItem(notesKey);
+    }
+
+    // ذخیره خودکار در localStorage هنگام تغییر
+    notes.addEventListener('input', () => {
+      localStorage.setItem(notesKey, notes.value);
+    });
+
+    dayBox.appendChild(notes);
+    calendar.appendChild(dayBox);
+
+    // بارگذاری وضعیت تسک
+    const checkbox = li.querySelector('input[type="checkbox"]');
+    checkbox.addEventListener('change', () => {
+      li.classList.toggle('done', checkbox.checked);
+      localStorage.setItem(`${month}_day${i}_task`, checkbox.checked);
+    });
+    if(localStorage.getItem(`${month}_day${i}_task`) === 'true'){
+      li.classList.add('done');
+      checkbox.checked = true;
+    }
+  }
+}
+
+function editTask(element) {
+  const currentText = element.textContent;
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = currentText;
+  input.className = 'edit-input';
+  element.replaceWith(input);
+  input.focus();
+
+  input.addEventListener('blur', () => {
+    element.textContent = input.value;
+    input.replaceWith(element);
+  });
+  input.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter') input.blur();
+  });
+}
+
+function downloadExcel() {
+  const wb = XLSX.utils.book_new();
+  const ws_data = [["روز","فعالیت","نوع","جزئیات","وضعیت","توضیحات"]];
+  const month = document.getElementById('monthSelect').value;
+  const calendar = document.getElementById('calendar');
+  const days = calendar.querySelectorAll('.day-box');
+  days.forEach((day,i)=>{
+    const dayNumber = i+1;
+    const li = day.querySelector('li');
+    const status = li.classList.contains('done') ? "انجام شده" : "انجام نشده";
+    const text = li.querySelector('.task-text').textContent.trim();
+    const details = li.querySelector('.details').textContent.trim();
+    const notes = day.querySelector('.notes').value.trim();
+    ws_data.push([dayNumber,text,li.dataset.type,details,status,notes]);
+  });
+  const ws = XLSX.utils.aoa_to_sheet(ws_data);
+  XLSX.utils.book_append_sheet(wb, ws, "گزارش ماهانه");
+  XLSX.writeFile(wb, `گزارش_ماه_${month}.xlsx`);
+}
+
+// رندر اولیه
+renderCalendar();
+</script>
+
+</body>
+</html>
